@@ -55,6 +55,18 @@ VERSION=1.26
 VARIANT=trixie   # leave empty for languages with no variant axis (e.g. php)
 ```
 
+To see what to bump them to, `latest` lists recent registry tags in the shape
+each language actually uses (repo and tag template are derived from the
+`Dockerfile` FROM line, so nothing extra to configure):
+
+```bash
+./latest            # all languages
+./latest golang php # just these
+```
+
+Note: lua is built `FROM debian`, so `latest` lists its Debian suites (the
+variant axis); the lua version itself comes from that suite's apt packages.
+
 ## Adding a language
 
 Create a directory with:

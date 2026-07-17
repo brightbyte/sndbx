@@ -1,0 +1,52 @@
+#!/bin/bash
+# latest — list recent registry tags matching each language's tag shape, to help
+# decide what to put in the per-language `version` files.
+#
+# The repository and tag shape are derived from each Dockerfile's FROM line
+# (the single source of truth): ${VERSION} becomes a version-number pattern and
+# ${VARIANT} the set of Debian suites below, so only tags in the shape we
+# actually use are shown, newest version first.
+#
+# Usage: latest [language ...]   (default: all languages)
+set -e
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+
+# The variant axis: Debian suites we care about. Other os variants (alpine,
+# slim, windowsservercore, ...) and pre-releases are filtered out.
+SUITES='trixie|bookworm|bullseye'
+
+langs=("$@")
+if [ ${#langs[@]} -eq 0 ]; then
+  for d in "$HERE"/*/; do
+    [ -f "$d/Dockerfile" ] && langs+=("$(basename "$d")")
+  done
+fi
+
+for lang in "${langs[@]}"; do
+  dockerfile="$HERE/$lang/Dockerfile"
+  [ -f "$dockerfile" ] || { echo "$lang: no Dockerfile, skipping" >&2; continue; }
+
+  # First FROM line: repo:tag-template, e.g. golang:${VERSION}-${VARIANT}
+  from="$(grep -m1 -E '^FROM ' "$dockerfile" | awk '{print $2}')"
+  repo="${from%%:*}"
+  tagtpl="${from#*:}"
+  # Official images live under library/.
+  case "$repo" in */*) ;; *) repo="library/$repo" ;; esac
+
+  # Turn the tag template into a regex: escape dots, then expand our two
+  # placeholders into their value patterns.
+  regex="$(printf '%s' "$tagtpl" | sed -E \
+    -e 's/[.]/\\./g' \
+    -e 's/\$\{VERSION\}/[0-9][0-9.]*/g' \
+    -e "s/\\\$\\{VARIANT\\}/($SUITES)/g")"
+
+  echo "== $lang ($repo:$tagtpl) =="
+  curl -s "https://hub.docker.com/v2/repositories/$repo/tags?page_size=100&ordering=last_updated" \
+    | grep -oE '"name":"[^"]*"' \
+    | sed -E 's/"name":"([^"]*)"/\1/' \
+    | grep -E "^${regex}\$" \
+    | sort -Vr \
+    | head -n 12
+  echo
+done
