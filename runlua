@@ -1,0 +1,3 @@
+#!/bin/bash
+# Convenience wrapper for: run lua
+exec "$(dirname "$0")/run" lua "$@"

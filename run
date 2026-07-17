@@ -1,0 +1,124 @@
+#!/bin/bash
+# run — build (if needed) and run a throwaway container for a target language.
+#
+# Usage:
+#   run <language> [target-dir] [docker-run-args...]
+#
+# Each supported language lives in its own directory next to this script and
+# contains a Dockerfile (with ${VERSION}/${VARIANT} placeholders) and a small
+# `config` file providing defaults. Adding a language means adding a directory.
+#
+# Environment variables:
+#   VERSION   Runtime version, e.g. 1.26 (default: per-language)
+#   VARIANT   Base-image variant/suite, e.g. trixie (default: per-language;
+#             some languages, like php, have no variant axis)
+#
+# Example:
+#   VERSION=1.26 VARIANT=trixie run golang path/to/code --network=host
+set -e
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+
+die() { echo "run: $*" >&2; exit 1; }
+
+# A language is any sibling directory that contains a Dockerfile.
+list_languages() {
+  local d
+  for d in "$HERE"/*/; do
+    [ -f "$d/Dockerfile" ] && basename "$d"
+  done
+}
+
+usage() {
+  {
+    echo "Usage: run <language> [target-dir] [docker-run-args...]"
+    echo
+    echo "Languages:"
+    list_languages | sed 's/^/  /'
+    echo
+    echo "Environment: VERSION, VARIANT (defaults are per-language)"
+    echo "Example: VERSION=1.26 run golang path/to/code --network=host"
+  } >&2
+}
+
+LANG_DIR="${1:-}"
+[ -n "$LANG_DIR" ] || { usage; exit 1; }
+case "$LANG_DIR" in
+  -h|--help|help) usage; exit 0 ;;
+esac
+shift
+
+DIR="$HERE/$LANG_DIR"
+[ -f "$DIR/Dockerfile" ] || die "unknown language '$LANG_DIR' (try: $(list_languages | paste -sd' ' -))"
+
+# Default version/variant for this language live in its `version` file (bump
+# there for new releases). Read them in a subshell so the file can use plain
+# `VERSION=`/`VARIANT=` assignments without clobbering values already supplied in
+# the environment, which take precedence.
+if [ -f "$DIR/version" ]; then
+  _def="$(. "$DIR/version"; printf '%s|%s' "${VERSION-}" "${VARIANT-}")"
+  VERSION="${VERSION:-${_def%%|*}}"
+  VARIANT="${VARIANT:-${_def#*|}}"
+fi
+
+# Per-language structural config: RUN_AS_USER, ALIASES.
+RUN_AS_USER=1
+[ -f "$DIR/config" ] && . "$DIR/config"
+
+[ -n "${VERSION:-}" ] || die "no version for '$LANG_DIR' (set VERSION or add it to $DIR/version)"
+
+# The rest of the arguments: an optional target directory to mount, followed by
+# any extra arguments to pass through to `docker run`. A leading argument that
+# starts with `-` is treated as a docker argument, not a target directory.
+if [ $# -gt 0 ] && [ "${1#-}" = "$1" ]; then
+  TGT="$1"
+  shift
+else
+  TGT="$PWD"
+fi
+[ -d "$TGT" ] || die "target directory does not exist: $TGT"
+TGT="$(cd "$TGT" && pwd)"
+
+# Image tag encodes the axes that vary. Languages without a variant (php) tag by
+# version alone.
+if [ -n "${VARIANT:-}" ]; then
+  TAG="$VERSION-$VARIANT"
+else
+  TAG="$VERSION"
+fi
+IMAGE="run-$LANG_DIR:$TAG"
+
+if [ -z "$(docker images -q "$IMAGE" 2>/dev/null)" ]; then
+  TMP="$(mktemp -d "${TMPDIR:-/tmp}/run.XXXXXX")"
+  trap 'rm -rf "$TMP"' EXIT
+  export VERSION VARIANT
+  # Restrict substitution to our two placeholders so any other ${...} in the
+  # Dockerfile (build args, shell expansions in RUN lines) survives untouched.
+  envsubst '${VERSION} ${VARIANT}' < "$DIR/Dockerfile" > "$TMP/Dockerfile"
+  # Build with the language directory as context so any helper files it ships
+  # can be COPYed in, but use the substituted Dockerfile from the temp dir.
+  docker build -f "$TMP/Dockerfile" -t "$IMAGE" "$DIR"
+  rm -rf "$TMP"
+  trap - EXIT
+  echo
+  echo "Generated image $IMAGE"
+fi
+
+echo
+echo "Starting $LANG_DIR container ($TAG), mounting $TGT"
+echo
+
+# Run as the calling host user so files created under the mounted /app are owned
+# by them instead of root. The UID:GID pair isn't a real user inside the image,
+# so point HOME at a writable location (the mount) to keep tools that expect a
+# home directory (build/module/pip caches, etc.) happy. Languages whose base
+# image handles user mapping itself (php) opt out via RUN_AS_USER=0.
+USER_ARGS=()
+if [ "${RUN_AS_USER:-1}" = "1" ]; then
+  USER_ARGS=(--user "$(id -u):$(id -g)" --env HOME=/app)
+fi
+
+docker run -it --rm \
+  --volume "$TGT:/app" \
+  "${USER_ARGS[@]}" \
+  "$@" "$IMAGE"

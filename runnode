@@ -1,0 +1,3 @@
+#!/bin/bash
+# Convenience wrapper for: run node
+exec "$(dirname "$0")/run" node "$@"

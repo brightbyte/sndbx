@@ -1,0 +1,4 @@
+# Structural config for the php target; version defaults live in ./version.
+# The thecodingmachine base image maps the host user itself, so don't pass
+# --user (RUN_AS_USER=0).
+RUN_AS_USER=0

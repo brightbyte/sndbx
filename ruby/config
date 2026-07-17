@@ -1,0 +1,2 @@
+# Structural config for the ruby target; version defaults live in ./version.
+RUN_AS_USER=1

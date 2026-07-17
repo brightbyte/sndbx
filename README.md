@@ -12,7 +12,8 @@ use (caching it) and starts a container with your code mounted at `/app`.
 run <language> [target-dir] [docker-run-args...]
 ```
 
-- `language` — one of the language directory names (`golang`, `python`, `php`).
+- `language` — one of the language directory names (`golang`, `python`, `php`,
+  `node`, `ruby`, `lua`).
 - `target-dir` — directory to mount at `/app` (defaults to the current dir).
   A leading argument starting with `-` is passed straight to `docker run`.
 - Anything after the target is forwarded to `docker run`.
@@ -31,13 +32,16 @@ VERSION=1.26 VARIANT=trixie run go path/to/code --network=host
 
 ## Convenience wrappers
 
-`rungo`, `runpy`, and `runphp` are thin wrappers that call `run` with the
-language pre-selected:
+`rungo`, `runpy`, `runphp`, `runnode`, `runruby`, and `runlua` are thin wrappers
+that call `run` with the language pre-selected:
 
 ```bash
-VERSION=1.26 rungo path/to/code --network=host   # == run go ...
+VERSION=1.26 rungo path/to/code --network=host   # == run golang ...
 VERSION=3.13 runpy path/to/code
 VERSION=8.2  runphp path/to/code
+VERSION=24   runnode path/to/code
+VERSION=3.4  runruby path/to/code
+VERSION=5.4  runlua path/to/code
 ```
 
 ## Default versions

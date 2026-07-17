@@ -1,0 +1,3 @@
+# php uses the thecodingmachine image, which has no Debian-suite variant axis.
+VERSION=8.2
+VARIANT=
