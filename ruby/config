@@ -1,2 +1,5 @@
-# Structural config for the ruby target; version defaults live in ./version.
+# Settings for the ruby target. VERSION/VARIANT are the image defaults built
+# when none are given in the environment; bump them for new releases.
+VERSION=3.4
+VARIANT=trixie
 RUN_AS_USER=1

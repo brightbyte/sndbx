@@ -1,4 +1,6 @@
-# Structural config for the php target; version defaults live in ./version.
-# The thecodingmachine base image maps the host user itself, so don't pass
-# --user (RUN_AS_USER=0).
+# Settings for the php target. The thecodingmachine image has no Debian-suite
+# variant axis (VARIANT empty -> tag by version alone) and maps the host user
+# itself, so don't pass --user (RUN_AS_USER=0). Bump VERSION for new releases.
+VERSION=8.2
+VARIANT=
 RUN_AS_USER=0

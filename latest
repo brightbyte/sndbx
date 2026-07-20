@@ -12,9 +12,9 @@ set -e
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
-# The variant axis: Debian suites we care about. Other os variants (alpine,
-# slim, windowsservercore, ...) and pre-releases are filtered out.
-SUITES='trixie|bookworm|bullseye'
+# The variant axis: Debian suites we care about. Other os variants (windowsserver...)
+# and pre-releases are filtered out.
+SUITES='trixie|bookworm|bullseye|alpine|slim'
 
 langs=("$@")
 if [ ${#langs[@]} -eq 0 ]; then
@@ -31,8 +31,10 @@ for lang in "${langs[@]}"; do
   from="$(grep -m1 -E '^FROM ' "$dockerfile" | awk '{print $2}')"
   repo="${from%%:*}"
   tagtpl="${from#*:}"
-  # Official images live under library/.
-  case "$repo" in */*) ;; *) repo="library/$repo" ;; esac
+  # Official images have no namespace (no slash); they live under library/.
+  if [[ "$repo" != */* ]]; then
+    repo="library/$repo"
+  fi
 
   # Turn the tag template into a regex: escape dots, then expand our two
   # placeholders into their value patterns.

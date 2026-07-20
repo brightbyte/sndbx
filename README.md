@@ -46,13 +46,15 @@ VERSION=5.4  runlua path/to/code
 
 ## Default versions
 
-Each language directory has a `version` file with the defaults to build when no
-`VERSION`/`VARIANT` is given. Bump these to track new upstream releases; review
-them all at once with `cat */version`. Example (`golang/version`):
+Each language directory has a `config` file holding the `VERSION`/`VARIANT`
+defaults to build when none are given in the environment. Bump these to track
+new upstream releases; review them all at once with `grep -H '^VERSION' */config`.
+Example (`golang/config`):
 
 ```bash
 VERSION=1.26
 VARIANT=trixie   # leave empty for languages with no variant axis (e.g. php)
+RUN_AS_USER=1    # 1: run as host uid:gid with HOME=/app; 0: leave to image
 ```
 
 To see what to bump them to, `latest` lists recent registry tags in the shape
@@ -74,10 +76,11 @@ Create a directory with:
 - `Dockerfile` — using `${VERSION}` and (optionally) `${VARIANT}` placeholders.
   Extra files in the directory are part of the build context, so the Dockerfile
   can `COPY` in helper scripts.
-- `version` — default `VERSION` and `VARIANT` (see above).
-- `config` — structural metadata, sourced by `run`:
+- `config` — settings sourced by `run`:
 
   ```bash
+  VERSION=1.26   # default version (env VERSION overrides)
+  VARIANT=trixie # default variant; leave empty for no variant axis
   RUN_AS_USER=1  # 1: run as host uid:gid with HOME=/app; 0: leave to image
   ```
 

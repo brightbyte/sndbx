@@ -1,2 +1,5 @@
-# Structural config for the node target; version defaults live in ./version.
+# Settings for the node target. VERSION/VARIANT are the image defaults built
+# when none are given in the environment; bump them for new releases.
+VERSION=24
+VARIANT=trixie
 RUN_AS_USER=1

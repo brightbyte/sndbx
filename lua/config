@@ -1,2 +1,6 @@
-# Structural config for the lua target; version defaults live in ./version.
+# Settings for the lua target. VERSION selects the Debian lua package
+# (5.4 -> lua5.4); the versions available depend on VARIANT (the Debian suite).
+# Bump these for new releases.
+VERSION=5.4
+VARIANT=trixie
 RUN_AS_USER=1
