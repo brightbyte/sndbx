@@ -5,10 +5,17 @@
 FROM debian:${VARIANT}
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      lua${VERSION} luarocks \
+      lua${VERSION} \
+      liblua${VERSION}-dev \
+      luarocks \
+      gcc \
+      make \
+      libc6-dev \
+      unzip \
  && rm -rf /var/lib/apt/lists/* \
  && ln -sf /usr/bin/lua${VERSION} /usr/local/bin/lua \
  && ln -sf /usr/bin/luac${VERSION} /usr/local/bin/luac
+RUN luarocks install busted
 WORKDIR /app
 
 CMD ["bash"]
