@@ -1,0 +1,43 @@
+#!/bin/bash
+# build — (re)build the image for a target language, even if it already exists.
+#
+# Usage:
+#   build <language>
+#
+# Environment variables: VERSION, VARIANT (see run).
+#
+# Example:
+#   VERSION=1.26 VARIANT=trixie build golang
+set -e
+
+. "$(dirname "$0")/lib.sh"
+
+usage() {
+  {
+    echo "Usage: build <language>"
+    echo
+    echo "Languages:"
+    list_languages | sed 's/^/  /'
+    echo
+    echo "Environment: VERSION, VARIANT (defaults are per-language)"
+  } >&2
+}
+
+case "${1:-}" in
+  "") usage; exit 1 ;;
+  -h|--help|help) usage; exit 0 ;;
+esac
+
+resolve_language "$1"
+
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/run.XXXXXX")"
+trap 'rm -rf "$TMP"' EXIT
+export VERSION VARIANT
+# Restrict substitution to our two placeholders so any other ${...} in the
+# Dockerfile (build args, shell expansions in RUN lines) survives untouched.
+envsubst '${VERSION} ${VARIANT}' < "$DIR/Dockerfile" > "$TMP/Dockerfile"
+# Build with the language directory as context so any helper files it ships
+# can be COPYed in, but use the substituted Dockerfile from the temp dir.
+docker build -f "$TMP/Dockerfile" -t "$IMAGE" "$DIR"
+echo
+echo "Generated image $IMAGE"

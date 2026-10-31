@@ -17,17 +17,7 @@
 #   VERSION=1.26 VARIANT=trixie run golang path/to/code --network=host
 set -e
 
-HERE="$(cd "$(dirname "$0")" && pwd)"
-
-die() { echo "run: $*" >&2; exit 1; }
-
-# A language is any sibling directory that contains a Dockerfile.
-list_languages() {
-  local d
-  for d in "$HERE"/*/; do
-    [ -f "$d/Dockerfile" ] && basename "$d"
-  done
-}
+. "$(dirname "$0")/lib.sh"
 
 usage() {
   {
@@ -49,20 +39,7 @@ if [ "$LANG_DIR" = "-h" ] || [ "$LANG_DIR" = "--help" ] || [ "$LANG_DIR" = "help
 fi
 shift
 
-DIR="$HERE/$LANG_DIR"
-[ -f "$DIR/Dockerfile" ] || die "unknown language '$LANG_DIR' (try: $(list_languages | paste -sd' ' -))"
-
-# Per-language settings live in config: the VERSION/VARIANT image defaults and
-# RUN_AS_USER. Remember any VERSION/VARIANT from the environment first, source
-# config, then let the environment values take precedence over the file's.
-_env_version="${VERSION-}"
-_env_variant="${VARIANT-}"
-RUN_AS_USER=1
-[ -f "$DIR/config" ] && . "$DIR/config"
-VERSION="${_env_version:-${VERSION-}}"
-VARIANT="${_env_variant:-${VARIANT-}}"
-
-[ -n "${VERSION:-}" ] || die "no version for '$LANG_DIR' (set VERSION, or add it to $DIR/config)"
+resolve_language "$LANG_DIR"
 
 # The rest of the arguments: an optional target directory to mount, followed by
 # any extra arguments to pass through to `docker run`. A leading argument that
@@ -76,29 +53,8 @@ fi
 [ -d "$TGT" ] || die "target directory does not exist: $TGT"
 TGT="$(cd "$TGT" && pwd)"
 
-# Image tag encodes the axes that vary. Languages without a variant (php) tag by
-# version alone.
-if [ -n "${VARIANT:-}" ]; then
-  TAG="$VERSION-$VARIANT"
-else
-  TAG="$VERSION"
-fi
-IMAGE="run-$LANG_DIR:$TAG"
-
 if [ -z "$(docker images -q "$IMAGE" 2>/dev/null)" ]; then
-  TMP="$(mktemp -d "${TMPDIR:-/tmp}/run.XXXXXX")"
-  trap 'rm -rf "$TMP"' EXIT
-  export VERSION VARIANT
-  # Restrict substitution to our two placeholders so any other ${...} in the
-  # Dockerfile (build args, shell expansions in RUN lines) survives untouched.
-  envsubst '${VERSION} ${VARIANT}' < "$DIR/Dockerfile" > "$TMP/Dockerfile"
-  # Build with the language directory as context so any helper files it ships
-  # can be COPYed in, but use the substituted Dockerfile from the temp dir.
-  docker build -f "$TMP/Dockerfile" -t "$IMAGE" "$DIR"
-  rm -rf "$TMP"
-  trap - EXIT
-  echo
-  echo "Generated image $IMAGE"
+  VERSION="$VERSION" VARIANT="$VARIANT" "$HERE/build" "$LANG_DIR"
 fi
 
 echo

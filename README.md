@@ -4,7 +4,10 @@ Docker-based helper for quickly spinning up a throwaway environment for running
 code in a given language, version, and base-image variant. Each supported
 language has its own directory (`golang`, `python`, `php`, ...) holding a
 `Dockerfile` and a small `config` of defaults; `run` builds the image on first
-use (caching it) and starts a container with your code mounted at `/app`.
+use (caching it, via `build`) and starts a container with your code mounted at
+`/app`. `build <language>` rebuilds the image unconditionally, e.g. after
+editing a Dockerfile; it takes the same `VERSION`/`VARIANT` variables. Both
+scripts share `lib.sh`.
 
 ## Usage
 
